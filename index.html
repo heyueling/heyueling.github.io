@@ -72,6 +72,45 @@
       <div class="outer">
         <section id="main">
   
+    <article id="post-redis-dump-analysis-sample" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2015/12/29/redis-dump-analysis-sample/" class="article-date">
+  <time datetime="2015-12-28T16:32:07.000Z" itemprop="datePublished">2015-12-29</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2015/12/29/redis-dump-analysis-sample/">redis dump 分析</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h4 id="u9996_u5148_u5B89_u88C5_rdbtools"><a href="#u9996_u5148_u5B89_u88C5_rdbtools" class="headerlink" title="首先安装 rdbtools"></a>首先安装 rdbtools</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pip install rdbtools</span><br></pre></td></tr></table></figure>
+<h4 id="u5C06rdb_u8F6C_u6362_u6210memory"><a href="#u5C06rdb_u8F6C_u6362_u6210memory" class="headerlink" title="将rdb转换成memory"></a>将rdb转换成memory</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rdb -c memory /var/redis/<span class="number">6379</span>/dump.rdb &gt; memory.csv</span><br></pre></td></tr></table></figure>
+<h4 id="u6700_u540E_u5199groovy_u811A_u672C_uFF0C_u5206_u6790redis_u7684_u4F7F_u7528_u60C5_u51B5"><a href="#u6700_u540E_u5199groovy_u811A_u672C_uFF0C_u5206_u6790redis_u7684_u4F7F_u7528_u60C5_u51B5" class="headerlink" title="最后写groovy脚本，分析redis的使用情况"></a>最后写groovy脚本，分析redis的使用情况</h4><p>根据具体业务做分析统计，下面的例子统计出各功能总容量并从大到小排列<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">Map&lt;String, Long&gt; map = <span class="keyword">new</span> HashMap&lt;&gt;()</span><br><span class="line"></span><br><span class="line"><span class="keyword">new</span> File(<span class="string">"$&#123;args[0]&#125;"</span>).eachLine &#123;</span><br><span class="line">    line -&gt;</span><br><span class="line">        <span class="keyword">if</span> (line != <span class="keyword">null</span> &amp;&amp; line.contains(<span class="string">","</span>) &amp;&amp; !line.startsWith(<span class="string">"database"</span>)) &#123;</span><br><span class="line">            String[] sa = line.split(<span class="string">","</span>)</span><br><span class="line">            String key = sa[<span class="number">2</span>]</span><br><span class="line">            <span class="keyword">long</span> size = sa[<span class="number">3</span>] as <span class="keyword">long</span></span><br><span class="line">            String[] ka = key.split(<span class="string">"\\|"</span>)</span><br><span class="line">            String tag = ka[<span class="number">0</span>].replace(<span class="string">"\""</span>, <span class="string">""</span>)</span><br><span class="line">            Long score = map.get(tag)</span><br><span class="line">            <span class="keyword">if</span> (score == <span class="keyword">null</span>) &#123;</span><br><span class="line">                score = <span class="number">0</span></span><br><span class="line">            &#125;</span><br><span class="line">            map.put(tag, score + size)</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">List&lt;Map.Entry&lt;String, Long&gt;&gt; list = <span class="keyword">new</span> ArrayList&lt;&gt;(map.entrySet())</span><br><span class="line">Collections.sort(list, <span class="keyword">new</span> Comparator&lt;Map.Entry&lt;String, Long&gt;&gt;() &#123;</span><br><span class="line">    <span class="annotation">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">compare</span><span class="params">(Map.Entry&lt;String, Long&gt; o1, Map.Entry&lt;String, Long&gt; o2)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> o2.getValue().compareTo(o1.getValue())</span><br><span class="line">    &#125;</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (Map.Entry&lt;String, Long&gt; entry : list) &#123;</span><br><span class="line">    println(<span class="string">"$&#123;entry.getKey()&#125;:$&#123;entry.getValue()&#125;"</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://heyueling.github.io/2015/12/29/redis-dump-analysis-sample/" data-id="ciiq740yo00043r2fsevyl16k" class="article-share-link">Share</a>
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+  
     <article id="post-vagrantfile-of-multiple-machines-sample" class="article article-type-post" itemscope itemprop="blogPost">
   <div class="article-meta">
     <a href="/2015/12/28/vagrantfile-of-multiple-machines-sample/" class="article-date">
@@ -86,7 +125,7 @@
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2015/12/28/vagrantfile-of-multiple-machines-sample/">vagrantfile of multiple machines sample</a>
+      <a class="article-title" href="/2015/12/28/vagrantfile-of-multiple-machines-sample/">从单机到集群 - vagrantfile</a>
     </h1>
   
 
@@ -99,7 +138,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://heyueling.github.io/2015/12/28/vagrantfile-of-multiple-machines-sample/" data-id="ciipzzubc0002602f7gb6j340" class="article-share-link">Share</a>
+      <a data-url="http://heyueling.github.io/2015/12/28/vagrantfile-of-multiple-machines-sample/" data-id="ciiq740yf00023r2fp744kz7x" class="article-share-link">Share</a>
       
       
     </footer>
@@ -136,7 +175,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://heyueling.github.io/2015/12/28/install-VBoxGuestAdditions/" data-id="ciipzzubk0004602favzpkhj6" class="article-share-link">Share</a>
+      <a data-url="http://heyueling.github.io/2015/12/28/install-VBoxGuestAdditions/" data-id="ciiq740yp00053r2f4rl32enx" class="article-share-link">Share</a>
       
       
     </footer>
@@ -160,7 +199,7 @@
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2015/12/28/ubuntu-sshd-settings/">ubuntu 配置 ssh服务</a>
+      <a class="article-title" href="/2015/12/28/ubuntu-sshd-settings/">Ubuntu 配置 ssh 服务</a>
     </h1>
   
 
@@ -176,7 +215,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://heyueling.github.io/2015/12/28/ubuntu-sshd-settings/" data-id="ciipzzubh0003602fylqtsu6d" class="article-share-link">Share</a>
+      <a data-url="http://heyueling.github.io/2015/12/28/ubuntu-sshd-settings/" data-id="ciiq740yl00033r2flgosrlda" class="article-share-link">Share</a>
       
       
     </footer>
@@ -221,7 +260,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="http://heyueling.github.io/2015/12/28/hello-world/" data-id="ciipzzubm0005602fj70sj7sj" class="article-share-link">Share</a>
+      <a data-url="http://heyueling.github.io/2015/12/28/hello-world/" data-id="ciiq740yr00063r2flelsgn3j" class="article-share-link">Share</a>
       
       
     </footer>
@@ -261,7 +300,11 @@
       <ul>
         
           <li>
-            <a href="/2015/12/28/vagrantfile-of-multiple-machines-sample/">vagrantfile of multiple machines sample</a>
+            <a href="/2015/12/29/redis-dump-analysis-sample/">redis dump 分析</a>
+          </li>
+        
+          <li>
+            <a href="/2015/12/28/vagrantfile-of-multiple-machines-sample/">从单机到集群 - vagrantfile</a>
           </li>
         
           <li>
@@ -269,7 +312,7 @@
           </li>
         
           <li>
-            <a href="/2015/12/28/ubuntu-sshd-settings/">ubuntu 配置 ssh服务</a>
+            <a href="/2015/12/28/ubuntu-sshd-settings/">Ubuntu 配置 ssh 服务</a>
           </li>
         
           <li>
